@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react'; // Added useCallback
 import {
   Card,
   Group,
@@ -16,7 +16,9 @@ import {
   useMantineTheme,
   ScrollArea,
   rem,
-  useMantineColorScheme, // Required for setting height in AppShell-like structures
+  useMantineColorScheme,
+  Drawer,
+  // IconX is needed for the close button in the drawer, but not imported
 } from '@mantine/core';
 import {
   IconHistory,
@@ -27,6 +29,7 @@ import {
   IconTrash,
   IconPlus,
   IconArrowBack,
+  IconX, // Imported IconX for the drawer close button
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router';
 
@@ -41,6 +44,7 @@ interface TimesheetRow {
   period: string;
   description: string;
   hours: Record<number, number>; // Maps day index (0-6) to hours
+  notes: Record<number, string>; // Maps day index (0-6) to notes/comments
 }
 
 // Initial/Mock Data
@@ -53,6 +57,7 @@ const initialRows: TimesheetRow[] = [
     period: 'Full Day',
     description: 'Weekly scrum meeting and sprint planning.',
     hours: { 0: 0, 1: 2.0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+    notes: { 1: 'Had to discuss scope changes for Project X.', 3: '' },
   },
   {
     id: 2,
@@ -62,6 +67,7 @@ const initialRows: TimesheetRow[] = [
     period: 'Half Day',
     description: 'Developed Q4 presentation deck for leadership.',
     hours: { 0: 0, 1: 0, 2: 4.0, 3: 4.0, 4: 0, 5: 0, 6: 0 },
+    notes: { 2: '', 3: 'Met with VP of Marketing to finalize slides.' },
   },
   // Add more mock rows to test scrolling...
   ...Array.from({ length: 2 }, (_, i) => ({
@@ -72,8 +78,18 @@ const initialRows: TimesheetRow[] = [
     period: 'Hour',
     description: `Working on project task #${i + 1}`,
     hours: { 0: 0, 1: 8.0, 2: 8.0, 3: 8.0, 4: 8.0, 5: 0, 6: 0 },
+    notes: {},
   })),
 ];
+
+// Helper interface for the Drawer state
+interface NotesDrawerState {
+  open: boolean;
+  rowId: number | null;
+  day: number | null;
+  client: string;
+  service: string;
+}
 
 const days = [0, 1, 2, 3, 4, 5, 6]; // 0=Sun, 6=Sat
 const dayLabels: Record<number, string> = { 0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday' };
@@ -91,11 +107,20 @@ export default function Timesheet() {
   const [rows, setRows] = useState<TimesheetRow[]>(initialRows);
   const [weekLabel, setWeekLabel] = useState('2025-W50');
   const [autosaveStatus, setAutosaveStatus] = useState<'saved' | 'saving'>('saved');
-    let navigate = useNavigate();
+  const [notesDrawer, setNotesDrawer] = useState<NotesDrawerState>({
+    open: false,
+    rowId: null,
+    day: null,
+    client: '',
+    service: '',
+  });
+  const [currentNote, setCurrentNote] = useState(''); // State for the note text being edited
+  let navigate = useNavigate();
 
   // Utility Functions
   const scheduleSave = () => {
     setAutosaveStatus('saving');
+    // In a real app, this is where you'd call an API to save data.
     setTimeout(() => setAutosaveStatus('saved'), 1500);
   };
 
@@ -124,6 +149,7 @@ export default function Timesheet() {
       period: '',
       description: '',
       hours: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+      notes: {},
     };
     setRows(currentRows => [...currentRows, newRow]);
     scheduleSave();
@@ -150,8 +176,48 @@ export default function Timesheet() {
     }
   };
 
-  const openNotesDrawer = (rowId: number, day: number) => {
-    alert(`Opening notes for Row ID: ${rowId}, Day: ${dayLabels[day]}`);
+  // --- Notes Drawer Logic ---
+
+  const openNotesDrawer = useCallback((rowId: number, day: number) => {
+    const row = rows.find(r => r.id === rowId);
+    if (row) {
+      setCurrentNote(row.notes[day] || '');
+      setNotesDrawer({
+        open: true,
+        rowId: rowId,
+        day: day,
+        client: row.client || 'N/A',
+        service: row.service || 'N/A',
+      });
+    }
+  }, [rows]); // Re-create if rows changes
+
+  const closeNotesDrawer = () => {
+    setNotesDrawer({
+      open: false,
+      rowId: null,
+      day: null,
+      client: '',
+      service: '',
+    });
+    setCurrentNote('');
+  };
+
+  const saveNote = () => {
+    if (notesDrawer.rowId !== null && notesDrawer.day !== null) {
+      setRows(currentRows =>
+        currentRows.map(row =>
+          row.id === notesDrawer.rowId
+            ? {
+                ...row,
+                notes: { ...row.notes, [notesDrawer.day!]: currentNote.trim() },
+              }
+            : row
+        )
+      );
+      scheduleSave();
+      closeNotesDrawer();
+    }
   };
 
   // Calculations
@@ -166,21 +232,20 @@ export default function Timesheet() {
   const totalBillable = 20.0; // Mock value
   const totalNonBillable = 30.0; // Mock value
 
-   const theme = useMantineTheme();
-      // 1. Get both primaryColor and colorScheme
+  const theme = useMantineTheme();
+  // 1. Get both primaryColor and colorScheme
   const { primaryColor } = theme;
   const { colorScheme } = useMantineColorScheme();
 
   const isDark = colorScheme === 'dark';
 
-  const bgColorIndex = isDark ? '6' : '5';
-
+  // Use a slightly different color index for better contrast/visibility on table headers/footers
+  const bgColorIndex = isDark ? '8' : '5'; // Used '8' for dark to make it slightly darker than default background
   const backgroundColorVar = `var(--mantine-color-${primaryColor}-${bgColorIndex})`;
 
-
-  const textColorVar = isDark 
-        ? `var(--mantine-color-${primaryColor}-0)` 
-        : `#fff`;
+  const textColorVar = isDark
+    ? `var(--mantine-color-white)` // Use pure white for better contrast on dark background
+    : `#fff`; // White text on color[5] background
 
   return (
     <Stack
@@ -195,13 +260,13 @@ export default function Timesheet() {
         shadow="sm"
         style={{ flexShrink: 0 }} // Prevents this section from shrinking
       >
-        
+
         <Group justify="space-between" wrap="nowrap">
           {/* Left Group */}
           <Group gap="md" wrap="nowrap">
             <Button variant="default" radius="md" onClick={() => navigate(-1)}>
-                          <IconArrowBack />
-                          </Button>
+              <IconArrowBack />
+            </Button>
             <TextInput
               type="week"
               value={weekLabel}
@@ -257,7 +322,7 @@ export default function Timesheet() {
 
       {/* 3. Scrollable Table Area (Fills the middle space) */}
       <ScrollArea
-        style={{ flexGrow: 1, borderRadius: 8 }} 
+        style={{ flexGrow: 1, borderRadius: 8 }}
         type="auto"
       >
         <Table
@@ -378,10 +443,12 @@ export default function Timesheet() {
                         size="xs"
                       />
                       <ActionIcon
+                        // Set the color based on whether a note exists for the day
+                        color={row.notes[day] ? 'blue' : 'gray'}
                         onClick={() => openNotesDrawer(row.id, day)}
                         variant="subtle"
                         size="xs"
-                        title="Add comment"
+                        title={row.notes[day] ? `View/Edit Note: ${row.notes[day].substring(0, 30)}...` : "Add comment"}
                         style={{ position: 'absolute', right: 2, top: '50%', transform: 'translateY(-50%)' }}
                       >
                         <IconInfoCircle size={14} />
@@ -491,8 +558,54 @@ export default function Timesheet() {
           </Card>
         </Grid.Col>
       </Grid>
+
+      {/* Notes Drawer */}
+      <Drawer
+        opened={notesDrawer.open}
+        onClose={closeNotesDrawer}
+        position="right"
+        title={<Title order={4}>Add Comment</Title>}
+        size={420}
+      >
+        <Stack h="100%">
+          {notesDrawer.client && notesDrawer.day !== null && (
+            <Text c="dimmed" size="sm" fw={500}>
+              <Text span fw={700} c="blue">{notesDrawer.client}</Text> / <Text span fw={700} c="blue">{notesDrawer.service}</Text> / {dayLabels[notesDrawer.day]}
+            </Text>
+          )}
+
+          <Textarea
+            value={currentNote}
+            onChange={(e) => setCurrentNote(e.target.value)}
+            placeholder="Enter comments for this day/task..."
+            minRows={10}
+            autosize
+            style={{ flexGrow: 1 }}
+          />
+
+          <Group justify="flex-end" mt="auto">
+            <Button
+              variant="outline"
+              color="gray"
+              onClick={closeNotesDrawer}
+              leftSection={<IconX size={16} />}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveNote}
+              variant="filled"
+              color="blue"
+              leftSection={<IconDeviceFloppy size={16} />}
+              disabled={currentNote.trim().length === 0}
+            >
+              Save Comment
+            </Button>
+          </Group>
+        </Stack>
+      </Drawer>
     </Stack>
   );
 }
 
-// export default Timesheet; // Export this component for use in your app
+// export default Timesheet; // This is the default export
