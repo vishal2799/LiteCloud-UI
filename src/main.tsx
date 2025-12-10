@@ -10,6 +10,7 @@ import EmployeeDashboard from './screens/EmployeeDashboard/EmployeeDashboard.tsx
 import { AppThemeProvider } from './context/AppThemeProvider.tsx';
 import Layout from './components/Layout.tsx';
 import Timesheet from './screens/WeeklyTimesheet/WeeklyTimesheet.tsx';
+import NotFoundPage from './screens/NotFoundPage.tsx';
 
 
 createRoot(document.getElementById('root')!).render(
@@ -21,6 +22,7 @@ createRoot(document.getElementById('root')!).render(
       <Route path="/" element={<App />} />
       <Route path="/employee-dashboard" element={<EmployeeDashboard />} />
       <Route path="/add-hours" element={<Timesheet />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
           </Layout>
     </BrowserRouter>
