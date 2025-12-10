@@ -1,7 +1,6 @@
-import { AppShell, Avatar, Box, Burger, Button, Group, Title, UnstyledButton } from "@mantine/core";
+import { AppShell, Avatar, Burger, Button, Group } from "@mantine/core";
 import { IconBell, IconUserCircle } from "@tabler/icons-react";
 import ThemeSettingsModalTrigger from "./ThemeSettingsModal";
-import Logo from "./Logo";
 
 // const Navbar: React.FC = () => (
 //     <Box component="header" style={{ padding: 'var(--mantine-spacing-md)', borderBottom: '1px solid var(--mantine-color-gray-2)', display: 'flex', alignItems: 'center' }}>
