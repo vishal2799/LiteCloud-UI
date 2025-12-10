@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 const NotFoundPage = () => {
   return (
     // 1. Center the content vertically (using minHeight: '100vh') and horizontally
-    <Center style={{ minHeight: '100vh' }}>
+    <Center style={{ minHeight: '80vh' }}>
       <Container size="xs" ta="center">
         
         {/* Large Error Code */}

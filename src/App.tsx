@@ -11,7 +11,7 @@ const navItems = [
 export default function App() {
 
   return (
-    <Center style={{ minHeight: '100vh' }}>
+    <Center style={{ minHeight: '80vh' }}>
       <Container size="lg" py="xl">
         
         {/* --- ADDED APPLICATION DESCRIPTION BLOCK --- */}
